@@ -1,0 +1,51 @@
+name: Build Oray X1 Pro MT7981 FIP DHCP MultiLayout
+
+# 触发条件：push到main/master、手动点击运行、PR
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: # 支持仓库页面手动触发编译
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 更新系统并安装编译依赖
+        run: |
+          sudo apt update
+          sudo apt install -y git build-essential gcc g++ make libssl-dev python3 python3-pip unzip wget curl
+
+      - name: 拉取 bl-mt798x 源码仓库
+        run: |
+          git clone https://github.com/hanwckf/bl-mt798x.git ./bl-mt798x
+          cd bl-mt798x
+          git pull
+
+      - name: 编译 oray_x1pro dhcp multi-layout FIP
+        run: |
+          cd bl-mt798x
+          export SOC=mt7981
+          export BOARD=oray_x1pro
+          export DHCP=1
+          export MULTI_LAYOUT=1
+          ./build.sh
+
+      - name: 列出编译产物
+        run: ls -lh bl-mt798x/output/
+
+      - name: 上传编译好的bin文件为工件
+        uses: actions/upload-artifact@v4
+        with:
+          name: oray_x1pro-fip-dhcp-multi
+          path: bl-mt798x/output/dhcp-mt7981_oray_x1pro-fip-fixed-parts-multi-layout.bin
+
+      # 可选：自动发布到Release（tag推送时）
+      - name: Release上传固件
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: bl-mt798x/output/dhcp-mt7981_oray_x1pro-fip-fixed-parts-multi-layout.bin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
